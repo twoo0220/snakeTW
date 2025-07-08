@@ -5,6 +5,8 @@
 int gN = 30;
 int gM = 20;
 int num = 4;
+enum class Direction { Up, Down, Left, Right };
+Direction currentDir = Direction::Left;
 
 struct object
 {
@@ -14,28 +16,41 @@ struct object
 
 void Tick(object* snake, object& fruit)
 {
-	for (int i = num; i > 0; --i)
+	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down) && currentDir != Direction::Up)
+	{
+		currentDir = Direction::Down;
+	}
+	else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up) && currentDir != Direction::Down)
+	{
+		currentDir = Direction::Up;
+	}
+	else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) && currentDir != Direction::Right)
+	{
+		currentDir = Direction::Left;
+	}
+	else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) && currentDir != Direction::Left)
+	{
+		currentDir = Direction::Right;
+	}
+
+	for (int i = num - 1; i > 0; --i)
 	{
 		snake[i].positionX = snake[i - 1].positionX;
 		snake[i].positionY = snake[i - 1].positionY;
 	}
 
-	if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down))
+	switch (currentDir)
 	{
-		snake[0].positionY += 1;
+	case Direction::Up:    --snake[0].positionY; break;
+	case Direction::Down:  ++snake[0].positionY; break;
+	case Direction::Left:  --snake[0].positionX; break;
+	case Direction::Right: ++snake[0].positionX; break;
 	}
-	else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up))
-	{
-		snake[0].positionY -= 1;
-	}
-	else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left))
-	{
-		snake[0].positionX -= 1;
-	}
-	else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right))
-	{
-		snake[0].positionX += 1;
-	}
+
+	if (snake[0].positionX > gN) { snake[0].positionX = 0; }
+	if (snake[0].positionX < 0) { snake[0].positionX = gN; }
+	if (snake[0].positionY > gM) { snake[0].positionY = 0; }	
+	if (snake[0].positionY < 0) { snake[0].positionY = gM; }
 
 	if ((snake[0].positionX == fruit.positionX) && (snake[0].positionY == fruit.positionY))
 	{
@@ -44,16 +59,12 @@ void Tick(object* snake, object& fruit)
 		fruit.positionY = rand() % gM;
 	}
 
-	if (snake[0].positionX > gN) { snake[0].positionX = 0; }
-	if (snake[0].positionX < 0) { snake[0].positionX = gN; }
-	if (snake[0].positionY > gM) { snake[0].positionY = 0; }	
-	if (snake[0].positionY < 0) { snake[0].positionY = gM; }
-
 	for (int i = 1; i < num; ++i)
 	{
 		if ((snake[0].positionX == snake[i].positionX) && (snake[0].positionY == snake[i].positionY))
 		{
 			num = i;
+			break;
 		}
 	}
 }
@@ -77,14 +88,10 @@ int main()
 	fruits.positionY = 10;
 
 	object snake[100];
-	std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
-	using dsec = std::chrono::duration<double>;
-	std::chrono::system_clock::duration invFpsLimit = std::chrono::duration_cast<std::chrono::system_clock::duration>(dsec(1.0 / 30.0)); // 60 FPS limit
-	std::chrono::system_clock::time_point beginFrame = std::chrono::system_clock::now();
-	std::chrono::system_clock::time_point endFrame = beginFrame + invFpsLimit;
-	std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds> prevTimeInSeconds = std::chrono::time_point_cast<std::chrono::seconds>(beginFrame);
-	
-	unsigned int frameCountPerSecond = 0;
+	const double fps = 20.0;
+	const auto invFps = std::chrono::duration<double>(1.0 / fps);
+	auto nextFrame = std::chrono::steady_clock::now() + invFps;
+
 	while (window.isOpen())
 	{
 		while (const std::optional event = window.pollEvent()) // since C++17
@@ -114,26 +121,14 @@ int main()
 			spriteRed.setPosition(pos);
 			window.draw(spriteRed);
 		}
-		std::cout << num;
 		
 		sf::Vector2f positionFruits(fruits.positionX * size, fruits.positionY * size);
 		spriteRed.setPosition(positionFruits);
 		window.draw(spriteRed);
 
-		//window.draw(text);
 		window.display();
-		
-		auto timeInSeconds = std::chrono::time_point_cast<std::chrono::seconds>(std::chrono::system_clock::now());
-		++frameCountPerSecond;
-		if (timeInSeconds > prevTimeInSeconds)
-		{
-			frameCountPerSecond = 0;
-			prevTimeInSeconds = timeInSeconds;
-		}
-
-		std::this_thread::sleep_until(endFrame);
-		beginFrame = endFrame;
-		endFrame = beginFrame + invFpsLimit;
+		std::this_thread::sleep_until(nextFrame);
+		nextFrame += invFps;
 	}
 
 	return 0;
